@@ -1,0 +1,28 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#f8f9fa"/>
+  
+  <!-- Main Leaf -->
+  <path d="M512 200 C 400 200, 300 300, 300 450 C 300 600, 400 700, 512 800 C 624 700, 724 600, 724 450 C 724 300, 624 200, 512 200 Z" 
+        fill="#698863" stroke="#4CAF50" stroke-width="8"/>
+  
+  <!-- Leaf Vein -->
+  <path d="M 512 200 L 512 800" stroke="#4CAF50" stroke-width="4" fill="none"/>
+  <path d="M 400 300 L 624 300" stroke="#4CAF50" stroke-width="3" fill="none"/>
+  <path d="M 450 400 L 574 400" stroke="#4CAF50" stroke-width="2" fill="none"/>
+  
+  <!-- Shield Overlay -->
+  <path d="M 462 350 L 462 650 L 512 700 L 562 650 L 562 350 Z" 
+        fill="white" stroke="#698863" stroke-width="6"/>
+  
+  <!-- Shield Border -->
+  <path d="M 462 350 L 512 320 L 562 350 L 562 650 L 512 700 L 462 650 Z" 
+        fill="none" stroke="#698863" stroke-width="4"/>
+  
+  <!-- Checkmark -->
+  <path d="M 480 500 L 500 520 L 544 476" 
+        stroke="#4CAF50" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- App Name (for larger sizes) -->
+  <text x="512" y="850" text-anchor="middle" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#161212">CocoShield</text>
+</svg> 
