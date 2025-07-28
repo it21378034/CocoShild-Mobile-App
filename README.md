@@ -121,6 +121,8 @@ firebase deploy --only functions
 - **Admins:**
   - Log in with admin credentials
   - Access the admin panel to view and manage all reports
+  - Admin Credentials:- Email:-admin@gmail.com
+  -                     password:-admin@123
 
 ---
 
