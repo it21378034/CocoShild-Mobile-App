@@ -38,10 +38,33 @@ export default function DiagnosisResultsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   
-  // Parse the diagnosis result from params
-  const diagnosisResult: DiagnosisResult = params.diagnosisResult 
-    ? JSON.parse(params.diagnosisResult as string) 
-    : null;
+  // Parse the diagnosis result from params with error handling
+  let diagnosisResult: DiagnosisResult | null = null;
+  try {
+    diagnosisResult = params.diagnosisResult 
+      ? JSON.parse(params.diagnosisResult as string) 
+      : null;
+  } catch (error) {
+    console.error('Error parsing diagnosis result:', error);
+    diagnosisResult = null;
+  }
+
+  // Debug: Log the diagnosis result to see what we're working with
+  console.log('Diagnosis Result:', JSON.stringify(diagnosisResult, null, 2));
+  if (diagnosisResult?.treatment) {
+    console.log('Treatment object:', JSON.stringify(diagnosisResult.treatment, null, 2));
+    console.log('Recommendations type:', typeof diagnosisResult.treatment.recommendations);
+    console.log('Recommendations:', diagnosisResult.treatment.recommendations);
+    
+    // Check for any problematic properties
+    Object.keys(diagnosisResult.treatment).forEach(key => {
+      const value = (diagnosisResult.treatment as any)[key];
+      console.log(`Treatment.${key}:`, typeof value, value);
+      if (typeof value === 'object' && value !== null) {
+        console.log(`Treatment.${key} is object:`, JSON.stringify(value, null, 2));
+      }
+    });
+  }
 
   const getSeverityColor = (severity: string) => {
     switch (severity.toLowerCase()) {
@@ -101,7 +124,7 @@ export default function DiagnosisResultsScreen() {
     },
   ];
 
-  if (!diagnosisResult || !diagnosisResult.best_prediction || !diagnosisResult.treatment) {
+  if (!diagnosisResult || !diagnosisResult.best_prediction || !diagnosisResult.treatment || typeof diagnosisResult.treatment !== 'object') {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.errorContainer}>
@@ -152,36 +175,42 @@ export default function DiagnosisResultsScreen() {
           <View style={styles.severityContainer}>
             <View style={styles.severityCard}>
               <Text style={styles.severityLabel}>Severity</Text>
-              <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(diagnosisResult.treatment.severity) }]}>
-                <Text style={styles.severityText}>{diagnosisResult.treatment.severity}</Text>
+              <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(diagnosisResult.treatment.severity || 'Medium') }]}>
+                <Text style={styles.severityText}>{diagnosisResult.treatment.severity || 'Medium'}</Text>
               </View>
             </View>
             
             <View style={styles.severityCard}>
               <Text style={styles.severityLabel}>Urgency</Text>
-              <View style={[styles.severityBadge, { backgroundColor: getUrgencyColor(diagnosisResult.treatment.urgency) }]}>
-                <Text style={styles.severityText}>{diagnosisResult.treatment.urgency}</Text>
+              <View style={[styles.severityBadge, { backgroundColor: getUrgencyColor(diagnosisResult.treatment.urgency || 'Medium') }]}>
+                <Text style={styles.severityText}>{diagnosisResult.treatment.urgency || 'Medium'}</Text>
               </View>
             </View>
           </View>
 
           {/* Treatment Recommendations */}
           <View style={styles.treatmentCard}>
-            <Text style={styles.treatmentTitle}>{diagnosisResult.treatment.title}</Text>
-            <Text style={styles.treatmentMessage}>{diagnosisResult.treatment.message}</Text>
+            <Text style={styles.treatmentTitle}>{diagnosisResult.treatment.title || 'Treatment Information'}</Text>
+            <Text style={styles.treatmentMessage}>{diagnosisResult.treatment.message || 'Treatment details not available'}</Text>
             
             <View style={styles.recommendationsContainer}>
               <Text style={styles.recommendationsTitle}>Treatment Recommendations:</Text>
-              {diagnosisResult.treatment.recommendations.map((recommendation, index) => (
-                <View key={index} style={styles.recommendationItem}>
-                  <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-                  <Text style={styles.recommendationText}>{recommendation}</Text>
-                </View>
-              ))}
+              {diagnosisResult.treatment.recommendations && Array.isArray(diagnosisResult.treatment.recommendations) ? 
+                diagnosisResult.treatment.recommendations.map((recommendation, index) => (
+                  <View key={index} style={styles.recommendationItem}>
+                    <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                    <Text style={styles.recommendationText}>
+                      {typeof recommendation === 'string' ? recommendation : JSON.stringify(recommendation)}
+                    </Text>
+                  </View>
+                )) : (
+                  <Text style={styles.recommendationText}>No recommendations available</Text>
+                )
+              }
             </View>
             
             <View style={styles.sourceContainer}>
-              <Text style={styles.sourceText}>Source: {diagnosisResult.treatment.source}</Text>
+              <Text style={styles.sourceText}>Source: {diagnosisResult.treatment.source || 'Unknown'}</Text>
             </View>
           </View>
 

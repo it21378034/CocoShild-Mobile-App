@@ -65,6 +65,7 @@ export default function AdminReportsScreen() {
   const [replyMessage, setReplyMessage] = useState('');
   const [submittingReply, setSubmittingReply] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReports();
@@ -226,7 +227,12 @@ export default function AdminReportsScreen() {
   };
 
   const updateStatus = async (reportId: string, newStatus: string) => {
+    if (updatingStatus === newStatus) return; // Prevent double clicks
+    setUpdatingStatus(newStatus);
+
     try {
+      console.log('🔄 Updating status:', reportId, 'to', newStatus);
+      
       const { doc, updateDoc } = await import('firebase/firestore');
       const { db } = await import('../config/firebase');
       
@@ -236,10 +242,34 @@ export default function AdminReportsScreen() {
         updatedAt: new Date(),
       });
       
-      fetchReports(); // Refresh reports
+      // Update the selectedReport state immediately for UI feedback
+      if (selectedReport && selectedReport.id === reportId) {
+        const updatedSelectedReport = {
+          ...selectedReport,
+          status: newStatus as any,
+          updatedAt: new Date(),
+        };
+        setSelectedReport(updatedSelectedReport);
+        console.log('✅ Updated selectedReport state:', updatedSelectedReport.status);
+      }
+      
+      // Also update the reports list
+      setReports(prevReports => 
+        prevReports.map(report => 
+          report.id === reportId 
+            ? { ...report, status: newStatus as any, updatedAt: new Date() }
+            : report
+        )
+      );
+      
+      console.log('✅ Status updated successfully');
+      Alert.alert('Success', `Status updated to ${getStatusText(newStatus)}`);
+      
     } catch (error) {
-      console.error('Error updating status:', error);
+      console.error('❌ Error updating status:', error);
       Alert.alert('Error', 'Failed to update status');
+    } finally {
+      setUpdatingStatus(null);
     }
   };
 
@@ -320,10 +350,9 @@ export default function AdminReportsScreen() {
           <Ionicons name="refresh" size={24} color="#698863" />
         </TouchableOpacity>
       </View>
+      
       {/* Content below sticky header */}
-      <ScrollView style={{ flex: 1, marginTop: HEADER_HEIGHT }}>
-        {/* Spacer below header */}
-        <View style={{ height: 24 }} />
+      <View style={{ flex: 1, marginTop: HEADER_HEIGHT }}>
         {/* Filter Tabs */}
         <View style={styles.filterTabs}>
           {['all', 'pending', 'in_progress', 'resolved', 'closed'].map((status) => (
@@ -346,204 +375,186 @@ export default function AdminReportsScreen() {
         </View>
 
         {/* Reports List */}
-        <View style={styles.listContainer}>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#698863" />
-              <Text style={styles.loadingText}>Loading reports...</Text>
-            </View>
-          ) : filteredReports.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="document-text" size={64} color="#ccc" />
-              <Text style={styles.emptyText}>No reports found</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={filteredReports}
-              renderItem={renderReportItem}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-            />
-          )}
-        </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#698863" />
+            <Text style={styles.loadingText}>Loading reports...</Text>
+          </View>
+        ) : filteredReports.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="document-text" size={64} color="#ccc" />
+            <Text style={styles.emptyText}>No reports found</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredReports}
+            renderItem={renderReportItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            style={{ flex: 1 }}
+          />
+        )}
+      </View>
 
-        {/* Report Detail Modal */}
-        <Modal
-          visible={showReportDetail}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setShowReportDetail(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Report Details</Text>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setShowReportDetail(false)}
-                >
-                  <Ionicons name="close" size={24} color="#698863" />
-                </TouchableOpacity>
-              </View>
-              <ScrollView style={styles.modalScroll}>
-                {selectedReport && (
-                  <View>
-                    <Text style={styles.detailTitle}>{selectedReport.title}</Text>
-                    <Text style={styles.detailDescription}>{selectedReport.description}</Text>
+      {/* Report Detail Modal */}
+      <Modal
+        visible={showReportDetail}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowReportDetail(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Report Details</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowReportDetail(false)}
+              >
+                <Ionicons name="close" size={24} color="#698863" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalScroll}>
+              {selectedReport && (
+                <View>
+                  <Text style={styles.detailTitle}>{selectedReport.title}</Text>
+                  <Text style={styles.detailDescription}>{selectedReport.description}</Text>
+                  
+                  <View style={styles.detailMeta}>
+                    <View style={styles.detailMetaItem}>
+                      <Text style={styles.detailMetaLabel}>User:</Text>
+                      <Text style={styles.detailMetaValue}>{selectedReport.userEmail}</Text>
+                    </View>
                     
-                    <View style={styles.detailMeta}>
-                      <View style={styles.detailMetaItem}>
-                        <Text style={styles.detailMetaLabel}>User:</Text>
-                        <Text style={styles.detailMetaValue}>{selectedReport.userEmail}</Text>
-                      </View>
-                      
-                      <View style={styles.detailMetaItem}>
-                        <Text style={styles.detailMetaLabel}>Status:</Text>
-                        <View style={[
-                          styles.statusBadge,
-                          { backgroundColor: getStatusColor(selectedReport.status) }
-                        ]}>
-                          <Text style={styles.statusText}>
-                            {getStatusText(selectedReport.status)}
-                          </Text>
-                        </View>
-                      </View>
-                      
-                      <View style={styles.detailMetaItem}>
-                        <Text style={styles.detailMetaLabel}>Priority:</Text>
-                        <Text style={[styles.detailMetaValue, { color: getPriorityColor(selectedReport.priority) }]}>
-                          {getPriorityText(selectedReport.priority)}
-                        </Text>
-                      </View>
-                      
-                      <View style={styles.detailMetaItem}>
-                        <Text style={styles.detailMetaLabel}>Category:</Text>
-                        <Text style={styles.detailMetaValue}>
-                          {getCategoryName(selectedReport.category)}
-                        </Text>
-                      </View>
-                      
-                      {selectedReport.location && (
-                        <View style={styles.detailMetaItem}>
-                          <Text style={styles.detailMetaLabel}>Location:</Text>
-                          <Text style={styles.detailMetaValue}>{selectedReport.location}</Text>
-                        </View>
-                      )}
-                      
-                      <View style={styles.detailMetaItem}>
-                        <Text style={styles.detailMetaLabel}>Date:</Text>
-                        <Text style={styles.detailMetaValue}>
-                          {new Date(selectedReport.createdAt).toLocaleDateString()}
+                    <View style={styles.detailMetaItem}>
+                      <Text style={styles.detailMetaLabel}>Status:</Text>
+                      <View style={[
+                        styles.statusBadge,
+                        { backgroundColor: getStatusColor(selectedReport.status) }
+                      ]}>
+                        <Text style={styles.statusText}>
+                          {getStatusText(selectedReport.status)}
                         </Text>
                       </View>
                     </View>
                     
-                    {/* Status Update Buttons */}
-                    <View style={styles.statusButtons}>
-                      <Text style={styles.statusButtonsTitle}>Update Status:</Text>
-                      <View style={styles.statusButtonRow}>
-                        {['pending', 'in_progress', 'resolved', 'closed'].map((status) => (
+                    <View style={styles.detailMetaItem}>
+                      <Text style={styles.detailMetaLabel}>Priority:</Text>
+                      <Text style={[styles.detailMetaValue, { color: getPriorityColor(selectedReport.priority) }]}>
+                        {getPriorityText(selectedReport.priority)}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.detailMetaItem}>
+                      <Text style={styles.detailMetaLabel}>Category:</Text>
+                      <Text style={styles.detailMetaValue}>
+                        {getCategoryName(selectedReport.category)}
+                      </Text>
+                    </View>
+                    
+                    {selectedReport.location && (
+                      <View style={styles.detailMetaItem}>
+                        <Text style={styles.detailMetaLabel}>Location:</Text>
+                        <Text style={styles.detailMetaValue}>{selectedReport.location}</Text>
+                      </View>
+                    )}
+                    
+                    <View style={styles.detailMetaItem}>
+                      <Text style={styles.detailMetaLabel}>Date:</Text>
+                      <Text style={styles.detailMetaValue}>
+                        {new Date(selectedReport.createdAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  {/* Status Update Buttons */}
+                  <View style={styles.statusButtons}>
+                    <Text style={styles.statusButtonsTitle}>Update Status:</Text>
+                    <View style={styles.statusButtonRow}>
+                      {['pending', 'in_progress', 'resolved', 'closed'].map((status) => {
+                        const isActive = selectedReport.status === status;
+                        const isUpdating = updatingStatus === status;
+                        console.log(`🔘 Status button ${status}:`, { 
+                          isActive, 
+                          isUpdating, 
+                          currentStatus: selectedReport.status 
+                        });
+                        
+                        return (
                           <TouchableOpacity
                             key={status}
                             style={[
                               styles.statusButton,
-                              selectedReport.status === status && styles.statusButtonActive,
+                              isActive && styles.statusButtonActive,
+                              isUpdating && styles.statusButtonUpdating,
                             ]}
                             onPress={() => updateStatus(selectedReport.id, status)}
+                            disabled={isUpdating}
                           >
-                            <Text style={[
-                              styles.statusButtonText,
-                              selectedReport.status === status && styles.statusButtonTextActive,
-                            ]}>
-                              {getStatusText(status)}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                    
-                    {/* Admin Replies */}
-                    {selectedReport.adminReplies && selectedReport.adminReplies.length > 0 && (
-                      <View style={styles.repliesSection}>
-                        <Text style={styles.repliesTitle}>Admin Replies:</Text>
-                        {selectedReport.adminReplies.map((reply, index) => (
-                          <View key={reply.id} style={styles.replyItem}>
-                            <View style={styles.replyHeader}>
-                              <Text style={styles.replyAuthor}>{reply.adminName}</Text>
-                              <Text style={styles.replyDate}>
-                                {new Date(reply.timestamp).toLocaleDateString()}
+                            {isUpdating ? (
+                              <ActivityIndicator color="#fff" size="small" />
+                            ) : (
+                              <Text style={[
+                                styles.statusButtonText,
+                                isActive && styles.statusButtonTextActive,
+                              ]}>
+                                {getStatusText(status)}
                               </Text>
-                            </View>
-                            <Text style={styles.replyMessage}>{reply.message}</Text>
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                  
+                  {/* Admin Replies */}
+                  {selectedReport.adminReplies && selectedReport.adminReplies.length > 0 && (
+                    <View style={styles.repliesSection}>
+                      <Text style={styles.repliesTitle}>Admin Replies:</Text>
+                      {selectedReport.adminReplies.map((reply, index) => (
+                        <View key={index} style={styles.replyItem}>
+                          <View style={styles.replyHeader}>
+                            <Text style={styles.replyAuthor}>{reply.adminName}</Text>
+                            <Text style={styles.replyDate}>
+                              {new Date(reply.timestamp).toLocaleDateString()}
+                            </Text>
                           </View>
-                        ))}
-                      </View>
-                    )}
-                    
-                    {/* Reply Button */}
+                          <Text style={styles.replyMessage}>{reply.message}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  
+                  {/* Reply Form */}
+                  <View style={styles.replyForm}>
+                    <Text style={styles.replyFormTitle}>Add Reply:</Text>
+                    <TextInput
+                      style={styles.replyInput}
+                      placeholder="Type your reply..."
+                      value={replyMessage}
+                      onChangeText={setReplyMessage}
+                      multiline
+                      numberOfLines={4}
+                    />
                     <TouchableOpacity
-                      style={styles.replyButton}
-                      onPress={() => {
-                        setShowReportDetail(false);
-                        setShowReplyModal(true);
-                      }}
+                      style={[styles.sendReplyButton, submittingReply && styles.sendReplyButtonDisabled]}
+                      onPress={handleReply}
+                      disabled={submittingReply}
                     >
-                      <Ionicons name="chatbubble" size={20} color="#fff" />
-                      <Text style={styles.replyButtonText}>Reply to Report</Text>
+                      {submittingReply ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.sendReplyButtonText}>Send Reply</Text>
+                      )}
                     </TouchableOpacity>
                   </View>
-                )}
-              </ScrollView>
-            </View>
+                </View>
+              )}
+            </ScrollView>
           </View>
-        </Modal>
-
-        {/* Reply Modal */}
-        <Modal
-          visible={showReplyModal}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setShowReplyModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Send Reply</Text>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setShowReplyModal(false)}
-                >
-                  <Ionicons name="close" size={24} color="#698863" />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.modalScroll}>
-                <TextInput
-                  style={styles.replyInput}
-                  value={replyMessage}
-                  onChangeText={setReplyMessage}
-                  placeholder="Enter your reply message..."
-                  placeholderTextColor="#999"
-                  multiline
-                  numberOfLines={6}
-                  textAlignVertical="top"
-                />
-                <TouchableOpacity
-                  style={[styles.sendReplyButton, submittingReply && styles.sendReplyButtonDisabled]}
-                  onPress={handleReply}
-                  disabled={submittingReply}
-                >
-                  {submittingReply ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.sendReplyButtonText}>Send Reply</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -796,6 +807,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#698863',
     borderColor: '#698863',
   },
+  statusButtonUpdating: {
+    backgroundColor: '#2196F3',
+    borderColor: '#2196F3',
+  },
   statusButtonText: {
     fontSize: fontSize.sm,
     color: '#666',
@@ -882,5 +897,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: fontSize.lg,
     fontWeight: '600',
+  },
+  replyForm: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  replyFormTitle: {
+    fontSize: fontSize.base,
+    fontWeight: '600',
+    color: '#131612',
+    marginBottom: spacing.sm,
   },
 }); 

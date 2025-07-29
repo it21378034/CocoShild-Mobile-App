@@ -21,32 +21,73 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
 
   // Fetch scan history from backend and calculate stats
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const res = await fetch("http://192.168.18.73:8001/history");
-        const data = await res.json();
-        const history = data.history || [];
-        const total = history.length;
-        const healthy = history.filter((item: any) => item.result.class === "Healthy_Leaves").length;
-        const diseased = total - healthy;
-        const successRate = total > 0 ? Math.round((healthy / total) * 100) : 0;
-        setRecentStats([
-          { label: "Total Scans", value: total },
-          { label: "Healthy", value: healthy },
-          { label: "Diseased", value: diseased },
-          { label: "Success Rate", value: `${successRate}%` },
-        ]);
-      } catch (e) {
-        setRecentStats([
-          { label: "Total Scans", value: "-" },
-          { label: "Healthy", value: "-" },
-          { label: "Diseased", value: "-" },
-          { label: "Success Rate", value: "-" },
-        ]);
+  const fetchStats = async () => {
+    try {
+      console.log('📊 Dashboard: Fetching stats from backend...');
+      
+      // Try multiple endpoints in case of network issues
+      const endpoints = [
+        'http://192.168.18.73:8001/history',
+        'http://localhost:8001/history',
+        'http://127.0.0.1:8001/history'
+      ];
+
+      let data = null;
+      let lastError = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`📊 Dashboard: Trying endpoint: ${endpoint}`);
+          const res = await fetch(endpoint);
+          
+          if (res.ok) {
+            data = await res.json();
+            console.log(`📊 Dashboard: Success via ${endpoint}`, data);
+            break;
+          } else {
+            console.log(`📊 Dashboard: Failed via ${endpoint} - status: ${res.status}`);
+          }
+        } catch (error) {
+          console.log(`📊 Dashboard: Error via ${endpoint}:`, error);
+          lastError = error;
+          continue;
+        }
       }
-      setLoading(false);
+
+      if (!data) {
+        throw new Error(`All endpoints failed. Last error: ${lastError}`);
+      }
+
+      const history = data.history || [];
+      console.log('📊 Dashboard: History data:', history);
+      
+      const total = history.length;
+      const healthy = history.filter((item: any) => item.result?.class === "Healthy_Leaves").length;
+      const diseased = total - healthy;
+      const successRate = total > 0 ? Math.round((healthy / total) * 100) : 0;
+      
+      console.log('📊 Dashboard: Calculated stats:', { total, healthy, diseased, successRate });
+      
+      setRecentStats([
+        { label: "Total Scans", value: total.toString() },
+        { label: "Healthy", value: healthy.toString() },
+        { label: "Diseased", value: diseased.toString() },
+        { label: "Success Rate", value: `${successRate}%` },
+      ]);
+    } catch (e) {
+      console.error('📊 Dashboard: Error fetching stats:', e);
+      // Set some default values instead of dashes
+      setRecentStats([
+        { label: "Total Scans", value: "0" },
+        { label: "Healthy", value: "0" },
+        { label: "Diseased", value: "0" },
+        { label: "Success Rate", value: "0%" },
+      ]);
     }
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchStats();
   }, []);
 
@@ -108,7 +149,23 @@ export default function DashboardScreen() {
       {/* Scrollable Content */}
       <ScrollView style={{ flex: 1, backgroundColor: "#f6fbf7" }} showsVerticalScrollIndicator={false}>
         {/* Recent Activity */}
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
+          <TouchableOpacity 
+            style={styles.refreshButton} 
+            onPress={() => {
+              setLoading(true);
+              fetchStats();
+            }}
+            disabled={loading}
+          >
+            <Ionicons 
+              name="refresh" 
+              size={20} 
+              color={loading ? "#ccc" : "#698863"} 
+            />
+          </TouchableOpacity>
+        </View>
         <View style={styles.sectionContainer}>
           {loading ? (
             <ActivityIndicator size="large" color="#698863" style={{ marginVertical: 24 }} />
@@ -504,6 +561,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#dc3545',
     marginLeft: spacing.lg,
+  },
+  // Section Header Styles
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: padding.xl,
+    marginBottom: spacing.md,
+  },
+  refreshButton: {
+    width: scale(32),
+    height: scale(32),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.full,
+    backgroundColor: '#e3f4e8',
   },
 });
 

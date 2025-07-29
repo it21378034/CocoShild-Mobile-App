@@ -79,17 +79,46 @@ export default function CaptureScreen() {
         type: 'image/jpeg',
       } as any);
 
-      const response = await fetch('http://192.168.121.73:8000/validate-coconut-leaf', {
-        method: 'POST',
-        body: formData,
-      });
+      // Try multiple endpoints in case of network issues
+      const endpoints = [
+        'http://192.168.18.73:8001/validate-coconut-leaf',
+        'http://localhost:8001/validate-coconut-leaf',
+        'http://127.0.0.1:8001/validate-coconut-leaf'
+      ];
 
-      if (response.ok) {
-        const result = await response.json();
-        return result.is_valid;
+      let response = null;
+      let lastError = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying validation endpoint: ${endpoint}`);
+          response = await fetch(endpoint, {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            console.log(`Validation successful via ${endpoint}:`, result);
+            return result.is_valid;
+          }
+        } catch (error) {
+          console.log(`Validation failed via ${endpoint}:`, error);
+          lastError = error;
+          continue;
+        }
       }
       
-      // If validation endpoint fails, allow the image but warn user
+      // If all endpoints fail, allow the image but warn user
+      console.log('All validation endpoints failed, allowing image:', lastError);
+      Alert.alert(
+        'Validation Warning',
+        'Unable to validate image due to network issues. Please ensure you captured a coconut leaf image.',
+        [
+          { text: 'Use Image', style: 'default' },
+          { text: 'Capture Again', onPress: () => handleCapture(imageIndex) }
+        ]
+      );
       return true;
     } catch (error) {
       console.log('Validation failed, allowing image:', error);
@@ -143,10 +172,38 @@ export default function CaptureScreen() {
       console.log('FormData contents:', formData);
       console.log('Number of images:', capturedImages.length);
       
-      const response = await fetch('http://192.168.121.73:8000/diagnose-multiple', {
-        method: 'POST',
-        body: formData,
-      });
+      // Try multiple endpoints in case of network issues
+      const endpoints = [
+        'http://192.168.18.73:8001/diagnose-multiple',
+        'http://localhost:8001/diagnose-multiple',
+        'http://127.0.0.1:8001/diagnose-multiple'
+      ];
+
+      let response = null;
+      let lastError = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying diagnosis endpoint: ${endpoint}`);
+          response = await fetch(endpoint, {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (response.ok) {
+            console.log(`Diagnosis successful via ${endpoint}`);
+            break;
+          }
+        } catch (error) {
+          console.log(`Diagnosis failed via ${endpoint}:`, error);
+          lastError = error;
+          continue;
+        }
+      }
+      
+      if (!response || !response.ok) {
+        throw new Error(`All diagnosis endpoints failed. Last error: ${lastError}`);
+      }
       
       console.log('Response status:', response.status);
       console.log('Response headers:', response.headers);
@@ -163,11 +220,21 @@ export default function CaptureScreen() {
         return;
       }
 
-      // Navigate to diagnosis results screen with the result data
+      // Clean the result to remove any circular references or problematic data
+      const cleanResult = {
+        predictions: result.predictions || [],
+        best_prediction: result.best_prediction || {},
+        treatment: result.treatment || {},
+        message: result.message || ''
+      };
+
+      console.log('Clean result for navigation:', cleanResult);
+
+      // Navigate to diagnosis results screen with the clean result data
       router.push({
         pathname: '/diagnosis-results',
         params: {
-          diagnosisResult: JSON.stringify(result),
+          diagnosisResult: JSON.stringify(cleanResult),
         },
       });
     } catch (error) {

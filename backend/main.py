@@ -267,7 +267,8 @@ def get_treatment_for_disease(disease_class: str):
                 "Practice good field sanitation"
             ],
             "severity": "None",
-            "urgency": "Low"
+            "urgency": "Low",
+            "source": "Healthy Palm Guidelines"
         }
     
     # Get specific treatments from the dataset

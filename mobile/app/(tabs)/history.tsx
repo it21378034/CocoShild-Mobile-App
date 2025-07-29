@@ -95,6 +95,7 @@ export default function HistoryScreen() {
   }, []);
 
   useEffect(() => {
+    console.log('📊 useEffect triggered - history length:', history.length);
     calculateAnalytics();
   }, [history]);
 
@@ -111,13 +112,23 @@ export default function HistoryScreen() {
       const apiHistory = response.data.history || [];
       console.log('📋 API History items:', apiHistory.length);
       
+      // Debug: Log the first item to see the structure
+      if (apiHistory.length > 0) {
+        console.log('🔍 First history item:', JSON.stringify(apiHistory[0], null, 2));
+        if (apiHistory[0].treatment) {
+          console.log('💊 Treatment type:', typeof apiHistory[0].treatment);
+          console.log('💊 Treatment value:', apiHistory[0].treatment);
+        }
+      }
+      
       // Transform API data to include additional fields
       const enhancedHistory: ScanHistory[] = apiHistory.map((item: any, index: number) => ({
         id: index.toString(),
         result: item.result || { class: 'Unknown', confidence: 0 },
         timestamp: item.timestamp || new Date(Date.now() - index * 86400000).toISOString(),
         images: item.images || [`scan_${index + 1}.jpg`],
-        treatment: item.treatment || getRandomTreatment(),
+        treatment: typeof item.treatment === 'string' ? item.treatment : 
+                   (item.treatment?.title || getRandomTreatment()),
         outcome: item.outcome || getRandomOutcome(),
         cost: item.cost || Math.floor(Math.random() * 5000) + 1000,
         location: item.location || getRandomLocation(),
@@ -179,7 +190,12 @@ export default function HistoryScreen() {
   };
 
   const calculateAnalytics = () => {
-    if (history.length === 0) return;
+    console.log('📊 Calculating analytics for history length:', history.length);
+    
+    if (history.length === 0) {
+      console.log('📊 No history data available');
+      return;
+    }
 
     const healthyCount = history.filter(item => 
       item.result.class === 'Healthy_Leaves'
@@ -187,9 +203,18 @@ export default function HistoryScreen() {
     
     const diseaseCount = history.length - healthyCount;
     const resolvedCount = history.filter(item => item.outcome === 'Resolved').length;
-    const successRate = (resolvedCount / diseaseCount) * 100;
+    const successRate = diseaseCount > 0 ? (resolvedCount / diseaseCount) * 100 : 0;
     const averageConfidence = history.reduce((sum, item) => sum + item.result.confidence, 0) / history.length;
     const totalCost = history.reduce((sum, item) => sum + (item.cost || 0), 0);
+
+    console.log('📊 Analytics calculation results:');
+    console.log('  - Total scans:', history.length);
+    console.log('  - Healthy count:', healthyCount);
+    console.log('  - Disease count:', diseaseCount);
+    console.log('  - Resolved count:', resolvedCount);
+    console.log('  - Success rate:', successRate);
+    console.log('  - Average confidence:', averageConfidence);
+    console.log('  - Total cost:', totalCost);
 
     // Mock monthly trend
     const monthlyTrend = [
@@ -201,7 +226,7 @@ export default function HistoryScreen() {
       { month: 'Jun', scans: Math.floor(Math.random() * 20) + 10 },
     ];
 
-    setAnalytics({
+    const newAnalytics = {
       totalScans: history.length,
       healthyCount,
       diseaseCount,
@@ -209,7 +234,10 @@ export default function HistoryScreen() {
       averageConfidence: averageConfidence * 100,
       totalCost,
       monthlyTrend
-    });
+    };
+
+    console.log('📊 Setting analytics:', newAnalytics);
+    setAnalytics(newAnalytics);
   };
 
   const getStatusColor = (status: string) => {
@@ -254,31 +282,34 @@ export default function HistoryScreen() {
     }
   };
 
-  const renderAnalyticsView = () => (
-    <ScrollView style={styles.analyticsContainer} showsVerticalScrollIndicator={false}>
-      {/* Summary Cards */}
-      <View style={styles.summaryGrid}>
-        <View style={styles.summaryCard}>
-          <Ionicons name="scan" size={24} color="#698863" />
-          <Text style={styles.summaryNumber}>{analytics.totalScans}</Text>
-          <Text style={styles.summaryLabel}>Total Scans</Text>
+  const renderAnalyticsView = () => {
+    console.log('📊 Rendering analytics view with data:', analytics);
+    
+    return (
+      <ScrollView style={styles.analyticsContainer} showsVerticalScrollIndicator={false}>
+        {/* Summary Cards */}
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryCard}>
+            <Ionicons name="scan" size={24} color="#698863" />
+            <Text style={styles.summaryNumber}>{analytics.totalScans || 0}</Text>
+            <Text style={styles.summaryLabel}>Total Scans</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Ionicons name="leaf" size={24} color="#4CAF50" />
+            <Text style={styles.summaryNumber}>{analytics.healthyCount || 0}</Text>
+            <Text style={styles.summaryLabel}>Healthy</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Ionicons name="warning" size={24} color="#FF9800" />
+            <Text style={styles.summaryNumber}>{analytics.diseaseCount || 0}</Text>
+            <Text style={styles.summaryLabel}>Diseases</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+            <Text style={styles.summaryNumber}>{(analytics.successRate || 0).toFixed(1)}%</Text>
+            <Text style={styles.summaryLabel}>Success Rate</Text>
+          </View>
         </View>
-        <View style={styles.summaryCard}>
-          <Ionicons name="leaf" size={24} color="#4CAF50" />
-          <Text style={styles.summaryNumber}>{analytics.healthyCount}</Text>
-          <Text style={styles.summaryLabel}>Healthy</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Ionicons name="warning" size={24} color="#FF9800" />
-          <Text style={styles.summaryNumber}>{analytics.diseaseCount}</Text>
-          <Text style={styles.summaryLabel}>Diseases</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-          <Text style={styles.summaryNumber}>{analytics.successRate.toFixed(1)}%</Text>
-          <Text style={styles.summaryLabel}>Success Rate</Text>
-        </View>
-      </View>
 
       {/* Cost Analysis */}
       <View style={styles.analyticsCard}>
@@ -286,12 +317,12 @@ export default function HistoryScreen() {
         <View style={styles.costRow}>
           <Ionicons name="wallet" size={20} color="#698863" />
           <Text style={styles.costLabel}>Total Treatment Cost:</Text>
-          <Text style={styles.costValue}>Rs. {analytics.totalCost.toLocaleString()}</Text>
+          <Text style={styles.costValue}>Rs. {(analytics.totalCost || 0).toLocaleString()}</Text>
         </View>
         <View style={styles.costRow}>
           <Ionicons name="trending-up" size={20} color="#4CAF50" />
           <Text style={styles.costLabel}>Average Confidence:</Text>
-          <Text style={styles.costValue}>{analytics.averageConfidence.toFixed(1)}%</Text>
+          <Text style={styles.costValue}>{(analytics.averageConfidence || 0).toFixed(1)}%</Text>
         </View>
       </View>
 
@@ -326,7 +357,8 @@ export default function HistoryScreen() {
         </View>
       </View>
     </ScrollView>
-  );
+    );
+  };
 
   const renderHistoryItem = ({ item, index }: { item: ScanHistory; index: number }) => {
     // Safety check for item.result
@@ -363,7 +395,10 @@ export default function HistoryScreen() {
           {item.treatment && (
             <View style={styles.treatmentInfo}>
               <Ionicons name="medical" size={16} color="#698863" />
-              <Text style={styles.treatmentText}>{item.treatment}</Text>
+              <Text style={styles.treatmentText}>
+                {typeof item.treatment === 'string' ? item.treatment : 
+                 (typeof item.treatment === 'object' ? (item.treatment as any)?.title || 'Treatment Applied' : 'Treatment Applied')}
+              </Text>
             </View>
           )}
 
@@ -426,7 +461,12 @@ export default function HistoryScreen() {
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.toggleButton, viewMode === 'analytics' && styles.toggleButtonActive]}
-          onPress={() => setViewMode('analytics')}
+          onPress={() => {
+            console.log('📊 Switching to analytics view');
+            setViewMode('analytics');
+            // Recalculate analytics when switching to analytics view
+            setTimeout(() => calculateAnalytics(), 100);
+          }}
         >
           <Ionicons name="analytics" size={20} color={viewMode === 'analytics' ? '#fff' : '#698863'} />
           <Text style={[styles.toggleText, viewMode === 'analytics' && styles.toggleTextActive]}>Analytics</Text>
